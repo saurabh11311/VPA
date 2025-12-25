@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vendor Performance Dashboard</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+font-family:'Segoe UI',sans-serif;
+background:linear-gradient(135deg,#f5f1e8,#e8dcc8,#d4c4a8);
+min-height:100vh;
+padding:2rem;
+color:#4a3f2f
+}
+
+.container{max-width:1400px;margin:auto}
+
+/* HEADER */
+.header{text-align:center;margin-bottom:3rem}
+.header-icon{
+width:64px;height:64px;
+background:linear-gradient(135deg,#c4a574,#a68a5a);
+border-radius:16px;
+display:inline-flex;align-items:center;justify-content:center;
+margin-bottom:1rem
+}
+h1{
+font-size:3.2rem;
+font-weight:900;
+background:linear-gradient(135deg,#8b7355,#6b5744,#4a3f2f);
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent
+}
+.subtitle{color:#6b5744}
+
+/* CONTROLS */
+.controls{
+background:rgba(255,255,255,.75);
+padding:1.5rem;
+border-radius:16px;
+border:1px solid rgba(196,165,116,.25);
+margin-bottom:2rem
+}
+.controls-grid{
+display:grid;
+grid-template-columns:1fr 1fr auto;
+gap:1rem
+}
+select{
+padding:.75rem 1rem;
+border-radius:12px;
+border:2px solid rgba(196,165,116,.3);
+background:white;
+color:#4a3f2f
+}
+.btn-add{
+padding:.75rem 1.5rem;
+border:none;
+border-radius:12px;
+background:linear-gradient(135deg,#c4a574,#a68a5a);
+color:white;
+font-weight:700;
+cursor:pointer
+}
+
+/* KPI */
+.kpi-grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+gap:1.5rem;
+margin-bottom:2rem
+}
+.kpi-card{
+background:rgba(255,255,255,.75);
+border-radius:16px;
+padding:1.5rem;
+border:1px solid rgba(196,165,116,.25)
+}
+.kpi-value{
+font-size:2.4rem;
+font-weight:900;
+transition:.3s
+}
+
+/* CHARTS */
+.charts-grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(450px,1fr));
+gap:1.5rem;
+margin-bottom:2rem
+}
+.chart-card{
+background:rgba(255,255,255,.75);
+border-radius:16px;
+padding:1.5rem;
+border:1px solid rgba(196,165,116,.25)
+}
+.chart-card canvas{max-height:320px}
+
+/* TABLE */
+.table-card{
+background:rgba(255,255,255,.75);
+border-radius:16px;
+overflow:hidden;
+border:1px solid rgba(196,165,116,.25)
+}
+thead{background:rgba(196,165,116,.15)}
+th,td{padding:1rem}
+.badge{
+padding:.3rem .7rem;
+border-radius:20px;
+font-size:.8rem;
+color:white;
+font-weight:700
+}
+.good{background:#7cb342}
+.avg{background:#e0b973}
+.bad{background:#d98c8c}
+
+/* MODAL */
+.modal{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.6);
+display:none;
+align-items:center;
+justify-content:center
+}
+.modal.active{display:flex}
+.modal-content{
+background:linear-gradient(135deg,#f5f1e8,#e8dcc8);
+border-radius:20px;
+width:100%;
+max-width:600px;
+padding:1.5rem
+}
+input{
+width:100%;
+padding:.75rem;
+border-radius:12px;
+border:2px solid rgba(196,165,116,.3)
+}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+@media(max-width:768px){
+.controls-grid,.form-grid{grid-template-columns:1fr}
+h1{font-size:2rem}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<div class="header">
+<div class="header-icon">📊</div>
+<h1>Vendor Performance</h1>
+<p class="subtitle">Real-time analytics dashboard</p>
+</div>
+
+<div class="controls">
+<div class="controls-grid">
+<select id="vendorSelect"></select>
+<select id="timeRange">
+<option>Last Month</option>
+<option>Last 3 Months</option>
+<option selected>Last 6 Months</option>
+<option>Last Year</option>
+</select>
+<button class="btn-add" onclick="openAdd()">+ Add Vendor</button>
+</div>
+</div>
+
+<div class="kpi-grid">
+<div class="kpi-card"><div class="kpi-value" id="avgRating">0</div>Avg Rating</div>
+<div class="kpi-card"><div class="kpi-value" id="avgOnTime">0%</div>On-Time</div>
+<div class="kpi-card"><div class="kpi-value" id="avgQuality">0%</div>Quality</div>
+<div class="kpi-card"><div class="kpi-value" id="totalCost">$0</div>Total Spend</div>
+</div>
+
+<div class="charts-grid">
+<div class="chart-card"><canvas id="lineChart"></canvas></div>
+<div class="chart-card"><canvas id="pieChart"></canvas></div>
+</div>
+
+<div class="chart-card">
+<canvas id="barChart"></canvas>
+</div>
+
+<div class="table-card">
+<table width="100%">
+<thead>
+<tr><th>Vendor</th><th>Rating</th><th>On-Time</th><th>Quality</th><th>Spend</th></tr>
+</thead>
+<tbody id="vendorTable"></tbody>
+</table>
+</div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal" id="modal">
+<div class="modal-content">
+<h2>Add Vendor</h2>
+<form onsubmit="saveVendor(event)">
+<input id="name" placeholder="Vendor Name" required><br><br>
+<div class="form-grid">
+<input id="rating" type="number" step="0.1" placeholder="Rating" required>
+<input id="onTime" type="number" placeholder="On-Time %" required>
+<input id="quality" type="number" placeholder="Quality %" required>
+<input id="cost" type="number" placeholder="Cost" required>
+</div><br>
+<button class="btn-add">Save</button>
+<button type="button" onclick="closeModal()">Cancel</button>
+</form>
+</div>
+</div>
+
+<script>
+let vendors=[
+{name:"TechSupply",rating:4.5,onTime:92,quality:88,cost:150000},
+{name:"Global Parts",rating:4.2,onTime:85,quality:90,cost:180000},
+{name:"FastShip",rating:3.8,onTime:78,quality:82,cost:120000}
+];
+
+let lineChart,pieChart,barChart;
+
+function updateAll(){
+updateKPIs();
+renderTable();
+updateCharts();
+updateSelect();
+}
+
+function updateKPIs(){
+const avg=(arr,key)=>Math.round(arr.reduce((s,v)=>s+v[key],0)/arr.length);
+document.getElementById("avgRating").textContent=(vendors.reduce((s,v)=>s+v.rating,0)/vendors.length).toFixed(1);
+document.getElementById("avgOnTime").textContent=avg(vendors,"onTime")+"%";
+document.getElementById("avgQuality").textContent=avg(vendors,"quality")+"%";
+document.getElementById("totalCost").textContent="$"+(vendors.reduce((s,v)=>s+v.cost,0)/1000).toFixed(0)+"K";
+}
+
+function renderTable(){
+const tbody=document.getElementById("vendorTable");
+tbody.innerHTML=vendors.map(v=>`
+<tr>
+<td>${v.name}</td>
+<td>${v.rating}</td>
+<td><span class="badge ${v.onTime>=90?'good':v.onTime>=80?'avg':'bad'}">${v.onTime}%</span></td>
+<td><span class="badge ${v.quality>=90?'good':v.quality>=80?'avg':'bad'}">${v.quality}%</span></td>
+<td>${(v.cost/1000).toFixed(0)}K</td>
+</tr>`).join("");
+}
+
+function updateCharts(){
+if(lineChart)lineChart.destroy();
+if(pieChart)pieChart.destroy();
+if(barChart)barChart.destroy();
+
+lineChart=new Chart(lineChartCtx,{
+type:"line",
+data:{
+labels:["Jan","Feb","Mar","Apr","May","Jun"],
+datasets:[
+{label:"On-Time",data:[85,87,90,88,92,91],borderColor:"#7cb342"},
+{label:"Quality",data:[88,86,89,91,90,92],borderColor:"#c4a574"}
+]}
+});
+
+pieChart=new Chart(pieChartCtx,{
+type:"pie",
+data:{
+labels:["Electronics","Raw","Packaging","Services","Other"],
+datasets:[{data:[35,25,20,15,5],backgroundColor:["#c4a574","#7cb342","#e0b973","#a68a5a","#d4c4a8"]}]
+}
+});
+
+barChart=new Chart(barChartCtx,{
+type:"bar",
+data:{
+labels:vendors.map(v=>v.name),
+datasets:[
+{label:"On-Time",data:vendors.map(v=>v.onTime),backgroundColor:"#7cb342"},
+{label:"Quality",data:vendors.map(v=>v.quality),backgroundColor:"#c4a574"}
+]}
+});
+}
+
+function updateSelect(){
+const sel=document.getElementById("vendorSelect");
+sel.innerHTML='<option>All Vendors</option>'+vendors.map(v=>`<option>${v.name}</option>`).join("");
+}
+
+function openAdd(){document.getElementById("modal").classList.add("active")}
+function closeModal(){document.getElementById("modal").classList.remove("active")}
+
+function saveVendor(e){
+e.preventDefault();
+vendors.push({
+name:name.value,
+rating:+rating.value,
+onTime:+onTime.value,
+quality:+quality.value,
+cost:+cost.value
+});
+closeModal();
+updateAll();
+}
+
+const lineChartCtx=document.getElementById("lineChart");
+const pieChartCtx=document.getElementById("pieChart");
+const barChartCtx=document.getElementById("barChart");
+
+updateAll();
+</script>
+</body>
+</html>
